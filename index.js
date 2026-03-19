@@ -42,9 +42,9 @@ connectDB();
 
 const allowedOrigins = [
   "http://localhost:3000",
-  "https://new-akg.vercel.app",
-  "https://vs4l9npm-3000.inc1.devtunnels.ms",
-  "https://akg-bice.vercel.app"
+  // "https://new-akg.vercel.app",
+  // "https://vs4l9npm-3000.inc1.devtunnels.ms",
+  "https://iskcon-noida-expressway-frontend.vercel.app"
 ];
 
 // Custom function to allow subdomains of onrender.com
