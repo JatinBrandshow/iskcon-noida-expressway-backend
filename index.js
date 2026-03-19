@@ -22,7 +22,8 @@ const {
   topperRouter,
   noticeRouter,
   permissionRouter,
-  adminLogRouter
+  adminLogRouter,
+  calendarRouter
 
 } = require("./routes");
 const { userAuth } = require("./middlewares/auth");
@@ -144,6 +145,9 @@ app.use("/api/downloads", downloadRouter)
 app.use("/api/toppers", topperRouter)
 
 app.use("/api/notices", noticeRouter)
+
+// Guest Calendar Router
+app.use("/api/guest/calendar", calendarRouter);
 
 // Start the server
 app.listen(PORT || 3000, () => {

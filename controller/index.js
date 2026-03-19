@@ -13,7 +13,7 @@ const dashboardController = require('./Dashboard.controller');
 const uploadfileController = require('./upload.controller');
 const widgetController = require('./widget.controller')
 const applicationController = require('./application.controller')
-const pageDataController =require('./pageData.controller')
+const pageDataController = require('./pageData.controller')
 const faqController = require("./faq.controller");
 const reviewController = require("./review.controller");
 const testimonialController = require("./testimonial.controller");
@@ -22,6 +22,7 @@ const topperController = require("./topper.controller");
 const noticeController = require("./notice.controller");
 const permissionController = require("./permission-management.controller");
 const adminLogController = require("./adminLog.controller");
+const calendarController = require("./calendar.controller");
 
 
 module.exports = {
@@ -40,13 +41,14 @@ module.exports = {
   dashboardController,
   widgetController,
   applicationController,
-  pageDataController ,
-  faqController ,
-  reviewController ,
+  pageDataController,
+  faqController,
+  reviewController,
   testimonialController,
   downloadController,
   topperController,
   noticeController,
   permissionController,
-  adminLogController
+  adminLogController,
+  calendarController
 };

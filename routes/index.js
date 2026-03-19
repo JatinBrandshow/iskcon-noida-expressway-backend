@@ -13,7 +13,7 @@ const uploadRouter = require("./upload.router");
 const dashboardRouter = require("./Dashboard.router");
 const widgetRouter = require('./widget.router')
 const applicationRouter = require('./application.router')
-const pageDataRouter=require('./pageData.router')
+const pageDataRouter = require('./pageData.router')
 const faqRouter = require("./faq.router");
 const reviewRouter = require("./review.router");
 const testimonialRouter = require("./testimonial.router");
@@ -22,6 +22,7 @@ const topperRouter = require("./topper.router");
 const noticeRouter = require("./notice.router");
 const permissionRouter = require('./permission.router')
 const adminLogRouter = require('./adminLog.router');
+const calendarRouter = require("./calendar.router");
 module.exports = {
   adminRouter,
   slugRouter,
@@ -38,13 +39,14 @@ module.exports = {
   dashboardRouter,
   widgetRouter,
   applicationRouter,
-  pageDataRouter ,
-  faqRouter ,
+  pageDataRouter,
+  faqRouter,
   reviewRouter,
   testimonialRouter,
   downloadRouter,
   topperRouter,
   noticeRouter,
   permissionRouter,
-  adminLogRouter
+  adminLogRouter,
+  calendarRouter
 };

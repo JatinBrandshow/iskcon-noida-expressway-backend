@@ -17,6 +17,7 @@ const Notice = require('./notice.model');
 const Permission = require('./Permission.model');
 const AdminLog = require('./AdminLog.model');
 const Session = require("./Session.model");
+const Calendar = require("./calendar.model");
 
 module.exports = {
   Admin,
@@ -28,8 +29,8 @@ module.exports = {
   Components,
   ExtraParamsData,
   Application,
-  PageData ,
-  Faq ,
+  PageData,
+  Faq,
   Review,
   Testimonial,
   Download,
@@ -37,5 +38,6 @@ module.exports = {
   Notice,
   Permission,
   AdminLog,
-  Session
+  Session,
+  Calendar
 };
