@@ -47,9 +47,9 @@ const getTithiData = async (
 
     // Bulk check in DB for the whole month (all non-deleted entries)
     const existingEntries = await Calendar.find({
-      date: { 
-        $gte: formatDate(startDate), 
-        $lte: formatDate(endDate) 
+      date: {
+        $gte: formatDate(startDate),
+        $lte: formatDate(endDate)
       },
       deleteflag: false,
     });
@@ -65,11 +65,14 @@ const getTithiData = async (
     for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
       const dateStr = formatDate(d);
       const dbEntries = dbMap.get(dateStr) || [];
-      
+
       // Specifically look for the "Tithi" type which contains the API data
       const tithiEntry = dbEntries.find(e => e.type === "Tithi" && (e.heading === "Daily Panchang" || !e.heading));
       const parsedTithiData = tithiEntry ? safeParse(tithiEntry.line) : null;
-      
+
+      // Ensure we have Chaughadiya and API Festivals as well
+      const isComplete = parsedTithiData && parsedTithiData.chaughadiya && parsedTithiData.api_festivals;
+
       // Add manual entries to festivals/muhurats if they exist
       dbEntries.forEach(entry => {
         // Skip the main automated Tithi entry
@@ -85,7 +88,7 @@ const getTithiData = async (
         }
       });
 
-      if (parsedTithiData) {
+      if (isComplete) {
         result.tithi.push({
           date: dateStr,
           value: parsedTithiData,
@@ -102,8 +105,9 @@ const getTithiData = async (
           lon: longitude,
           tzone: timezone,
         };
-        
-        const promise = axios.post(
+
+        // Fetch both Panchang and Chaughadiya in parallel
+        const panchangPromise = axios.post(
           `https://json.astrologyapi.com/v1/advanced_panchang`,
           payload,
           {
@@ -113,22 +117,53 @@ const getTithiData = async (
               "Accept-Language": language || "en",
             },
           }
-        ).then(res => {
-          console.log(`AstrologyAPI Response [${dateStr}]:`, JSON.stringify(res.data).substring(0, 200) + "...");
-          return { date: dateStr, data: res.data };
+        );
+
+        const chaughadiyaPromise = axios.post(
+          `https://json.astrologyapi.com/v1/chaughadiya_muhurta`,
+          payload,
+          {
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Basic ${Buffer.from(userId + ":" + apiKey).toString("base64")}`,
+              "Accept-Language": language || "en",
+            },
+          }
+        );
+
+        const festivalPromise = axios.post(
+          `https://json.astrologyapi.com/v1/panchang_festival`,
+          payload,
+          {
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Basic ${Buffer.from(userId + ":" + apiKey).toString("base64")}`,
+              "Accept-Language": language || "en",
+            },
+          }
+        );
+
+        const promise = Promise.all([panchangPromise, chaughadiyaPromise, festivalPromise]).then(([panchangRes, chaughadiyaRes, festivalRes]) => {
+          const combinedData = {
+            ...panchangRes.data,
+            chaughadiya: chaughadiyaRes.data.chaughadiya,
+            api_festivals: festivalRes.data.festivals
+          };
+          console.log(`AstrologyAPI Response [${dateStr}]: Panchang + Chaughadiya + Festival fetched`);
+          return { date: dateStr, data: combinedData };
         })
-        .catch(err => {
-          console.error(`Error fetching Tithi for ${dateStr}:`, err.message);
-          return { date: dateStr, data: null };
-        });
-        
+          .catch(err => {
+            console.error(`Error fetching Tithi/Chaughadiya for ${dateStr}:`, err.message);
+            return { date: dateStr, data: null };
+          });
+
         fetchPromises.push(promise);
       }
     }
 
     if (fetchPromises.length > 0) {
       const fetchedResults = await Promise.all(fetchPromises);
-      
+
       for (const res of fetchedResults) {
         if (res.data) {
           result.tithi.push({
@@ -139,13 +174,13 @@ const getTithiData = async (
           // Save to local DB via Mongoose
           await Calendar.updateOne(
             { date: res.date, type: "Tithi" },
-            { 
-              $set: { 
+            {
+              $set: {
                 line: JSON.stringify(res.data),
                 status: true,
                 deleteflag: false,
                 heading: "Daily Panchang"
-              } 
+              }
             },
             { upsert: true }
           ).catch(e => console.error("Error saving to DB:", e.message));
@@ -185,7 +220,8 @@ const getTithiDataForDate = async (
     });
 
     const parsedData = existingEntry ? safeParse(existingEntry.line) : null;
-    if (parsedData) {
+    // Only return from DB if data exists AND it is completely complete (includes both chaughadiya AND api_festivals)
+    if (parsedData && parsedData.chaughadiya && parsedData.api_festivals) {
       return {
         source: "db",
         date: formattedDate,
@@ -193,40 +229,60 @@ const getTithiDataForDate = async (
       };
     }
 
-    // Fetch from API
-    const response = await axios.post(
-      `https://json.astrologyapi.com/v1/advanced_panchang`,
-      {
-        day,
-        month,
-        year,
-        hour,
-        min,
-        lat: latitude,
-        lon: longitude,
-        tzone: timezone,
-      },
-      {
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Basic ${Buffer.from(userId + ":" + apiKey).toString("base64")}`,
-          "Accept-Language": language || "en",
-        },
-      }
-    );
+    // Fetch from API in parallel
+    const [panchangResponse, chaughadiyaResponse, festivalResponse] = await Promise.all([
+      axios.post(
+        `https://json.astrologyapi.com/v1/advanced_panchang`,
+        { day, month, year, hour, min, lat: latitude, lon: longitude, tzone: timezone },
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Basic ${Buffer.from(userId + ":" + apiKey).toString("base64")}`,
+            "Accept-Language": language || "en",
+          },
+        }
+      ),
+      axios.post(
+        `https://json.astrologyapi.com/v1/chaughadiya_muhurta`,
+        { day, month, year, hour, min, lat: latitude, lon: longitude, tzone: timezone },
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Basic ${Buffer.from(userId + ":" + apiKey).toString("base64")}`,
+            "Accept-Language": language || "en",
+          },
+        }
+      ),
+      axios.post(
+        `https://json.astrologyapi.com/v1/panchang_festival`,
+        { day, month, year, hour, min, lat: latitude, lon: longitude, tzone: timezone },
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Basic ${Buffer.from(userId + ":" + apiKey).toString("base64")}`,
+            "Accept-Language": language || "en",
+          },
+        }
+      )
+    ]);
 
-    const tithiData = response.data;
-    console.log(`AstrologyAPI Response [${formattedDate}]:`, JSON.stringify(tithiData).substring(0, 500) + "...");
+    const combinedData = {
+      ...panchangResponse.data,
+      chaughadiya: chaughadiyaResponse.data.chaughadiya,
+      api_festivals: festivalResponse.data.festivals
+    };
 
-    if (tithiData) {
+    console.log(`AstrologyAPI Response [${formattedDate}]: Panchang + Chaughadiya + Festival fetched`);
+
+    if (combinedData) {
       await Calendar.updateOne(
         { date: formattedDate, type: "Tithi" },
-        { 
-          $set: { 
-            line: JSON.stringify(tithiData),
+        {
+          $set: {
+            line: JSON.stringify(combinedData),
             status: true,
             deleteflag: false
-          } 
+          }
         },
         { upsert: true }
       );
@@ -235,7 +291,7 @@ const getTithiDataForDate = async (
     return {
       source: "api",
       date: formattedDate,
-      tithi: tithiData,
+      tithi: combinedData,
     };
   } catch (error) {
     console.error("Error in getTithiDataForDate:", error);
